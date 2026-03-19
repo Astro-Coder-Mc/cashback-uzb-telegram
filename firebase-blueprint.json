@@ -1,0 +1,64 @@
+{
+  "entities": {
+    "users": {
+      "title": "User Profile",
+      "description": "Stores basic information and account status.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string", "format": "uri" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "username": { "type": "string", "description": "Unique username for transfers." },
+        "balance": { "type": "number", "description": "Current wallet balance." },
+        "accountType": { "type": "string", "enum": ["cashback", "merchant"], "description": "Account role." },
+        "setupComplete": { "type": "boolean" }
+      },
+      "required": ["uid", "email"]
+    },
+    "transactions": {
+      "title": "Transaction",
+      "description": "Record of a financial movement.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "title": { "type": "string" },
+        "amount": { "type": "number" },
+        "type": { "type": "string", "enum": ["plus", "minus"] },
+        "date": { "type": "string", "format": "date-time" },
+        "icon": { "type": "string" },
+        "recipientUid": { "type": "string" }
+      },
+      "required": ["uid", "amount", "type", "date"]
+    },
+    "cards": {
+      "title": "Bank Card",
+      "description": "User's linked bank cards.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "type": { "type": "string", "enum": ["Uzcard", "Humo", "Visa", "Mastercard"] },
+        "number": { "type": "string" },
+        "balance": { "type": "number" },
+        "color": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "type", "number"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "users",
+      "description": "User profile document."
+    },
+    "/transactions/{txId}": {
+      "schema": "transactions",
+      "description": "Global transactions log (filtered by UID in rules)."
+    },
+    "/cards/{cardId}": {
+      "schema": "cards",
+      "description": "User bank cards."
+    }
+  }
+}

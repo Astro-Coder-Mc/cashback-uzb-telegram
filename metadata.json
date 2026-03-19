@@ -1,0 +1,5 @@
+{
+  "name": "Cashbacker Premium",
+  "description": "Premium Telegram Mini App for cashbacks, QR scanning, user-to-user transfers, and card transfers with enhanced security and a modern UI.",
+  "requestFramePermissions": ["camera"]
+}

@@ -1,0 +1,113 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Fields: uid, phoneNumber, telegramId, firstName, lastName, username, balance, accountType, setupComplete, createdAt, role
+    //
+    // Collection: transactions
+    // Fields: uid, title, amount, type, date, icon, recipientUid
+    //
+    // Collection: cards
+    // Fields: uid, type, number, balance, color, createdAt
+    //
+    // Collection: notifications
+    // Fields: uid, title, message, date, read, type
+    //
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (
+          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+          (request.auth.token != null && request.auth.token.email == "astrojamshid@gmail.com")
+        );
+    }
+
+    // Domain Validators
+    function isValidUser(data) {
+      return data.uid is string &&
+             data.createdAt is timestamp &&
+             (!('balance' in data) || data.balance is number) &&
+             (!('username' in data) || (data.username is string && data.username.size() >= 3 && data.username.size() < 50)) &&
+             (!('role' in data) || data.role in ['user', 'admin']) &&
+             (!('phoneNumber' in data) || data.phoneNumber is string) &&
+             (!('telegramId' in data) || data.telegramId is number || data.telegramId is string) &&
+             (!('firstName' in data) || data.firstName is string) &&
+             (!('lastName' in data) || data.lastName is string) &&
+             (!('accountType' in data) || data.accountType is string) &&
+             (!('setupComplete' in data) || data.setupComplete is bool);
+    }
+
+    function isValidTransaction(data) {
+      return data.uid is string &&
+             data.amount is number &&
+             data.type in ['plus', 'minus'] &&
+             data.date is timestamp &&
+             data.title is string && data.title.size() < 100 &&
+             (!('icon' in data) || data.icon is string) &&
+             (!('recipientUid' in data) || data.recipientUid is string);
+    }
+
+    function isValidCard(data) {
+      return data.uid is string &&
+             data.type in ['Uzcard', 'Humo', 'Visa', 'Mastercard'] &&
+             data.number is string && data.number.size() < 30 &&
+             data.balance is number &&
+             (!('color' in data) || data.color is string) &&
+             (!('createdAt' in data) || data.createdAt is timestamp);
+    }
+
+    function isValidNotification(data) {
+      return data.uid is string &&
+             data.title is string && data.title.size() < 100 &&
+             data.message is string && data.message.size() < 500 &&
+             data.date is timestamp &&
+             (!('read' in data) || data.read is bool) &&
+             (!('type' in data) || data.type is string);
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && 
+                      (!('role' in request.resource.data) || request.resource.data.role == 'user');
+      allow update: if (isOwner(userId) || isAdmin()) && isValidUser(request.resource.data) && 
+                      (isAdmin() || (!('role' in request.resource.data) || request.resource.data.role == resource.data.role));
+      allow delete: if isAdmin();
+    }
+
+    match /transactions/{txId} {
+      allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;
+      allow create: if isAuthenticated() && isValidTransaction(request.resource.data) && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    match /cards/{cardId} {
+      allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;
+      allow create: if isAuthenticated() && isValidCard(request.resource.data) && request.resource.data.uid == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.uid == request.auth.uid && isValidCard(request.resource.data);
+      allow delete: if isAuthenticated() && resource.data.uid == request.auth.uid;
+    }
+
+    match /notifications/{notifId} {
+      allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;
+      allow create: if isAuthenticated() && isValidNotification(request.resource.data);
+      allow update: if isAuthenticated() && resource.data.uid == request.auth.uid && 
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow delete: if isAuthenticated() && resource.data.uid == request.auth.uid;
+    }
+  }
+}
